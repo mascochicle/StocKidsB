@@ -1902,7 +1902,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1619';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1626';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2860,6 +2860,7 @@ function pintarHoja(dia) {
 
   if (hoja.tipo === 'nombre') { pintarHojaNombre(); return; }
   if (hoja.tipo === 'borrar') { pintarHojaBorrar(dia); return; }
+  if (hoja.tipo === 'visor') { pintarHojaVisor(); return; }
 
   const e = DATOS.empresas.find(x => x.ticker === hoja.ticker);
   const foto = Cartera.calcular(estado, DATOS, dia);
@@ -2931,6 +2932,20 @@ function pintarHoja(dia) {
  * exactamente sobre "Mi dinero" — un toque por costumbre y adiós partida. Poniéndolos en
  * vertical, lo que queda sobre la barra es "No, mejor no".
  */
+function pintarHojaVisor() {
+  document.getElementById('app').insertAdjacentHTML('beforeend', `
+    <div class="fondoNegro" data-cerrar="1">
+      <div class="hoja" data-nocerrar="1">
+        <h3>¿Vas al Visor?</h3>
+        <p class="pie">Ahí está el dinero de verdad. Esto se queda como lo dejaste.</p>
+        <div class="acciones apiladas">
+          <button class="boton comprar" data-irvisor="1">Sí, ir al Visor</button>
+          <button class="boton vender" data-cerrar="1">Quedarme aquí</button>
+        </div>
+      </div>
+    </div>`);
+}
+
 function pintarHojaBorrar(dia) {
   const foto = Cartera.calcular(estado, DATOS, dia);
   document.getElementById('app').insertAdjacentHTML('beforeend', `
@@ -3029,11 +3044,17 @@ document.addEventListener('click', (ev) => {
                               '[data-vender],[data-cerrar],[data-atajo],[data-hacer],' +
                               '[data-nombre],[data-vista],[data-tema],[data-borrar],' +
                               '[data-copia],[data-importar],[data-recado],[data-nocerrar],' +
-                              '[data-salir]');
+                              '[data-salir],[data-irvisor]');
   if (!t) return;
 
-  // El visor es otra página, no otra vista: aquí se sale y no hay nada más que repintar.
-  if (t.dataset.salir) { location.href = A_VISOR; return; }
+  /*
+   * El visor es otra página, no otra vista. Y se PREGUNTA antes de salir: la pestaña vive
+   * junto a Ajustes y Marco la picaba sin querer, perdiendo dónde iba. Salir no borra nada,
+   * pero interrumpe — y una app que te saca de donde estabas por un roce se siente frágil.
+   * Lo pidió el 16-ago-2026.
+   */
+  if (t.dataset.salir) { hoja = { tipo: 'visor' }; pintar(); return; }
+  if (t.dataset.irvisor) { location.href = A_VISOR; return; }
 
   if (t.dataset.nocerrar) return;
   if (t.dataset.nombre)  { hoja = { tipo: 'nombre' }; }
