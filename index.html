@@ -126,6 +126,9 @@
   .resumen .cifra em.moneda { font-size:17px }
   .invertido em.moneda { font-size:13px; margin-left:4px }
   .tarjeta em.moneda { font-size:12.5px; margin-left:4px }
+  /* En la lista de movimientos la cifra es de 15px: sin esto la etiqueta la heredaba y
+     quedaba del mismo tamaño que el dinero. */
+  .fila .cuanto em.moneda { font-size:11px; margin-left:3px }
   .resumen .cifra { font-size:clamp(26px, 8.5vw, 40px); font-weight:800; letter-spacing:-1.8px;
                     line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap;
                     overflow:hidden; text-overflow:ellipsis }
@@ -1861,7 +1864,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1524';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1526';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2561,7 +2564,7 @@ function pintarReportes(main, dia) {
           <div class="abajo">${fecha} · ${o.acciones.toFixed(2)} × ${dinero(o.precio)}</div>
         </div>
         <div class="cuanto">
-          <b>${esVenta ? '+' : '−'}${dinero(o.monto)}</b>
+          <b>${esVenta ? '+' : '−'}${dinero(o.monto)}<em class="moneda">${MONEDA}</em></b>
           ${esVenta
             ? `<i class="${signo(o.realizado)}">${conSigno(o.realizado)}
                  (${o.realizadoPct >= 0 ? '+' : '−'}${Math.abs(o.realizadoPct).toFixed(0)}%)</i>`
