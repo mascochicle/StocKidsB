@@ -384,8 +384,12 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="StocKids">
+<meta name="apple-mobile-web-app-title" content="StocKids B">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- Sin esto el navegador no muestra ícono en la pestaña ni en un marcador: solo lo veía
+     Android al instalarla. Con dos apps hermanas, poder distinguirlas también fuera de la
+     pantalla de inicio importa. -->
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 
 <style>
   /* ===== StocKidsB: paleta propia =====
@@ -1740,7 +1744,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1357';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1402';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,

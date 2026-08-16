@@ -1,6 +1,5 @@
-const V = 'stockidsb-20260816-1357';
+const V = 'stockidsb-20260816-1402';
 const ARCHIVOS = ['./', './index.html', './manifest.webmanifest',
-                  './icon-192.png', './icon-512.png'];
                   './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
