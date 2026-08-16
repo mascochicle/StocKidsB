@@ -61,6 +61,12 @@
      mandando una foto editada con el reloj donde debía ir. */
   header { padding:14px 18px 10px; display:flex; align-items:flex-start; gap:10px;
            justify-content:space-between }
+
+  /* ⚠️ El <input type="file"> NO puede llevar `hidden` ni `display:none`.
+     En Chrome de Android, un input de archivo que no está RENDERIZADO abre un selector del
+     que a veces no se puede volver: la app se queda atrás y hay que matarla por completo.
+     Marco lo cachó el 16-ago-2026 en las dos apps. Se quita del paso sin sacarlo del render. */
+  .fueraDelPaso { position:absolute; left:-9999px; width:1px; height:1px; opacity:0 }
   .marca { font-weight:800; font-size:17px; letter-spacing:-.4px }
   .marca span { color:var(--verde) }
   /* El sello de que ESTE dinero es de mentiras. Desde que existe el Visor con dinero de
@@ -420,7 +426,7 @@
   </div>
   <!-- Vive fuera de las vistas: si se repintara con ellas, el diálogo de archivos del
        teléfono se quedaría hablándole a un elemento que ya no existe. -->
-  <input type="file" id="archivo" accept=".json,application/json" hidden>
+  <input type="file" id="archivo" accept=".json,application/json" class="fueraDelPaso">
   <nav>
     <button data-ir="cartera" class="puesto"><span class="icono">◈</span>Mi dinero</button>
     <button data-ir="mercado"><span class="icono">≡</span>La bolsa</button>
@@ -1744,7 +1750,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1402';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1421';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2741,7 +2747,7 @@ document.addEventListener('click', (ev) => {
     return;                                   // bajar un archivo no cambia nada que repintar
   }
   if (t.dataset.importar) {
-    if (t.dataset.importar === 'abrir') { $('#archivo').click(); return; }
+    if (t.dataset.importar === 'abrir') { abrirSelector(); return; }
     if (t.dataset.importar === 'cancelar') importando = null;
     else if (importando && importando.partida) {
       estado = importando.partida;
@@ -2843,7 +2849,29 @@ document.addEventListener('input', (ev) => {
 
 /* El archivo que escoge del teléfono. Se lee, se revisa y se PREGUNTA: meterlo pisa la
    partida de ahora, así que no puede pasar solo por haber tocado un archivo. */
+/*
+ * ⚠️ Abrir el selector manda la app a segundo plano, y al volver se dispara
+ * `visibilitychange` -> `reg.update()`. Si hay un service worker nuevo esperando, toma el
+ * control y el registro RECARGA LA PÁGINA sola. Recargar a media escogida de archivo tira lo
+ * que el usuario estaba haciendo, y con el selector encima parece que la app se trabó.
+ *
+ * Esta bandera la lee el registro del service worker (ver publicar.py) para no recargar
+ * mientras el selector está abierto. Se apaga al volver, con o sin archivo: cancelar NO
+ * dispara `change`, así que `focus` es el único aviso de que regresó.
+ */
+function abrirSelector() {
+  window.escogiendoArchivo = true;
+  const soltar = () => {
+    window.escogiendoArchivo = false;
+    window.removeEventListener('focus', soltar);
+  };
+  window.addEventListener('focus', soltar);
+  setTimeout(soltar, 120000);        // por si el `focus` no llega nunca: nunca quedarse trabado
+  $('#archivo').click();
+}
+
 $('#archivo').addEventListener('change', async (ev) => {
+  window.escogiendoArchivo = false;
   const f = ev.target.files && ev.target.files[0];
   ev.target.value = '';                       // para poder volver a escoger el mismo
   if (!f || !estado) return;
@@ -2899,6 +2927,11 @@ if ('serviceWorker' in navigator) {
   var _recargando = false;
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (_recargando) return;
+    /* ⚠️ Nunca recargar con el selector de archivos abierto. Abrirlo manda la app a segundo
+       plano; al volver se busca actualización, y si hay una esperando esto recargaba la
+       página encima del usuario — perdiendo el archivo que estaba escogiendo y pareciendo
+       que la app se trabó. Marco lo cachó el 16-ago-2026. */
+    if (window.escogiendoArchivo) return;
     _recargando = true;
     location.reload();
   });
@@ -2906,7 +2939,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
       reg.update();
       document.addEventListener('visibilitychange', function () {
-        if (!document.hidden) reg.update();
+        if (!document.hidden && !window.escogiendoArchivo) reg.update();
       });
     }).catch(function (e) { console.warn('sw:', e); });
   });
