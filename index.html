@@ -1902,7 +1902,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1613';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1619';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2669,9 +2669,10 @@ function pintarMercado(main, dia) {
   const orden = { empresa: 0, canasta: 1, cripto: 2 };
   disponibles.sort((a, b) => (orden[a.tipo] - orden[b.tipo]) || a.ticker.localeCompare(b.ticker));
 
+  /* Sin encabezado: la pestaña ya dice "La bolsa", y cuánto le queda sin invertir está en
+     Mi dinero. Repetirlo aquí era decir dos veces lo mismo. Lo quitó Marco el 16-ago-2026. */
   main.innerHTML = `
-    <div class="titulo">Puedes comprar ${disponibles.length} cosas · tienes ${dinero(foto.efectivo)}</div>
-    <div class="lista">${disponibles.map(e => {
+    <div class="lista" style="padding-top:14px">${disponibles.map(e => {
       const px = Cartera.precio(DATOS, e.ticker, dia);
       // Un precio por día hábil: en fin de semana la bolsa está cerrada y no se mueve.
       const mueve = pintarMovimiento(movimiento(e.ticker, dia));
