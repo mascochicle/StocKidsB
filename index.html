@@ -223,10 +223,9 @@
                        letter-spacing:.6px; text-transform:uppercase }
   .tabla .encabezado .hueco { flex:1 }
   .tabla .encabezado span:not(.hueco) { text-align:right; flex:none }
-  .tabla .encabezado span:nth-child(2) { width:56px }   /* Cant. */
-  .tabla .encabezado span:nth-child(3) { width:58px }   /* Costo */
-  .tabla .encabezado span:nth-child(4) { width:72px }   /* Ganancia */
-  .tabla .encabezado span:nth-child(5) { width:52px }   /* % */
+  .tabla .encabezado span:nth-child(2) { width:62px }   /* Cant. */
+  .tabla .encabezado span:nth-child(3) { width:78px }   /* Ganancia */
+  .tabla .encabezado span:nth-child(4) { width:56px }   /* % */
 
   .tabla .fila { gap:7px }
   /* El nombre NO se recorta: es la columna que identifica el renglón. Se le deja el espacio
@@ -240,10 +239,9 @@
      nombre también son <div>, las reglas le pegaban al logo. Las columnas salían del ancho de
      su contenido y no se alineaban entre renglones — que es justo lo que una tabla tiene que
      hacer. Costó el 16-ago-2026. */
-  .tabla .fila .col.cant  { width:56px }
-  .tabla .fila .col.costo { width:58px }
-  .tabla .fila .col.gana  { width:72px }
-  .tabla .fila .col.pct   { width:52px }
+  .tabla .fila .col.cant { width:62px }
+  .tabla .fila .col.gana { width:78px }
+  .tabla .fila .col.pct  { width:56px }
   /* El valor de HOY es la cifra que se busca: más grande y con el color de la ganancia
      contra lo que costó. La resta con la columna de al lado está a la vista. */
   .tabla .fila .col.fuerte { font-size:14.5px; font-weight:750 }
@@ -308,7 +306,13 @@
   .volver { background:none; border:none; color:var(--suave); font:inherit; font-size:14px;
             padding:12px 18px 0; cursor:pointer; display:flex; align-items:center; gap:6px }
   .ficha { padding:6px 18px 0 }
-  .ficha .encabezado { display:flex; align-items:center; gap:13px }
+  /* ⚠️ FIJO al bajar. Marco lo pidió el 16-ago-2026: al hacer scroll en la ficha se perdía de
+     vista de qué empresa se trataba y quedaba una pantalla de números sin dueño. El logo y el
+     ticker son la identidad de lo que estás viendo; tienen que seguir ahí. */
+  .ficha .encabezado { display:flex; align-items:center; gap:13px;
+                       position:sticky; top:0; z-index:5;
+                       background:var(--fondo); padding:8px 0 10px;
+                       margin:-8px 0 0; box-shadow:0 6px 10px -8px rgba(0,0,0,.5) }
   .ficha h2 { margin:0; font-size:26px; font-weight:800; letter-spacing:-.8px }
   .ficha .ticker { color:var(--tenue); font-size:13px; font-weight:600; letter-spacing:.5px }
   .ficha .sector { font-style:normal; margin-left:6px; letter-spacing:0 }
@@ -1908,7 +1912,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1637';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1646';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2067,6 +2071,15 @@ const pctCorto = (n) => {
   }
   return s + (a >= 100 ? Math.round(a) : a.toFixed(1)) + '%';
 };
+
+/*
+ * Un dividendo puede ser de centésimas de centavo y `dinero()` lo redondea a "$0.00", que se
+ * lee como un error. Pasa de verdad: NVIDIA reparte $0.0025 por acción una vez ajustado por
+ * sus seis splits. Se le dan los decimales que hagan falta para que el número exista.
+ */
+const centavitos = (n) => n === 0 ? '$0.00'
+  : Math.abs(n) >= 0.01 ? dinero(n)
+  : '$' + n.toFixed(Math.min(6, Math.max(3, 2 - Math.floor(Math.log10(Math.abs(n))))));
 
 const conSignoCorto = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + dineroCorto(Math.abs(n));
 const escapar = s => String(s).replace(/[&<>"]/g, c =>
@@ -2272,7 +2285,7 @@ function pintarCartera(main, dia, r) {
       <div class="lista tabla">
         <div class="encabezado">
           <span class="hueco">Inst.</span>
-          <span>Cant.</span><span>Costo</span><span>Ganancia</span><span>%</span>
+          <span>Cant.</span><span>Ganancia</span><span>%</span>
         </div>
         ${foto.posiciones.map(p => `
         <button class="fila" data-ficha="${p.ticker}">
@@ -2288,7 +2301,6 @@ function pintarCartera(main, dia, r) {
           </div>
           <div class="col cant">${p.acciones.toLocaleString('en-US',
             { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-          <div class="col costo">${dineroCorto(p.costo)}</div>
           <div class="col gana fuerte ${clase(p.ganancia)}">${conSignoCorto(p.ganancia)}</div>
           <div class="col pct ${clase(p.ganancia)}">${pctCorto(p.gananciaPct)}</div>
         </button>`).join('')}</div>`
@@ -2766,14 +2778,15 @@ function pintarFicha(main, dia) {
         ${mia ? '' : 'disabled'}>Vender</button>
     </div>
     ${mia ? `<div class="tengo">Tienes <b>${mia.acciones.toFixed(2)}</b> que valen
-        <b>${dinero(mia.valor)}</b>. Te costaron <b>${dinero(mia.precioPromedio)}</b> cada una,
+        <b>${dinero(mia.valor)}</b>. Te costaron <b>${dinero(mia.costo)}</b> en total
+        (<b>${dinero(mia.precioPromedio)}</b> cada una),
         o sea que vas <b class="${clase(mia.ganancia)}">${conSigno(mia.ganancia)}</b>.
         ${mia.dividendos > 0.005
           ? `Además te ha pagado <b>${dinero(mia.dividendos)}</b> en dividendos.` : ''}</div>` : ''}
     ${pagados.length ? `<div class="reparto">
         <b>Te paga por tenerla.</b> ${escapar(e.nombre)} reparte parte de sus ganancias entre
         quienes tienen sus acciones. Van ${pagados.length} pagos; el último fue de
-        <b>${dinero(ultimo[1])}</b> por acción.</div>`
+        <b>${centavitos(ultimo[1])}</b> por acción.</div>`
       : `<div class="reparto no">${escapar(e.nombre)} <b>no reparte dividendos</b>: todo lo
         que gana se lo queda para crecer. Solo ganas si sube el precio.</div>`}
     ${(() => {
