@@ -1,0 +1,17 @@
+{
+  "name": "StocKids B",
+  "short_name": "StocKidsB",
+  "description": "Aprender a invertir con 46 años reales de bolsa, de los 11 a los 18",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12101C",
+  "theme_color": "#12101C",
+  "lang": "es-MX",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
