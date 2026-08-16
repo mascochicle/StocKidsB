@@ -225,6 +225,8 @@
      puede llegar a seis cifras. */
   .tarjeta b { font-size:16px; font-weight:700; font-variant-numeric:tabular-nums;
                display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .tarjeta small { display:block; color:var(--tenue); font-size:11px; margin-top:2px;
+                   line-height:1.35 }
 
   /* --- la rueda de reparto --- */
   .reparto_caja { margin:14px 14px 0; background:var(--panel); border:1px solid var(--borde);
@@ -293,9 +295,12 @@
   /* --- pestañas --- */
   nav { display:flex; border-top:1px solid var(--borde); background:var(--fondo);
         padding-bottom:env(safe-area-inset-bottom) }
-  nav button { flex:1; background:none; border:none; color:var(--tenue); font:inherit;
-               font-size:12.5px; font-weight:600; padding:11px 0 13px; cursor:pointer;
-               display:flex; flex-direction:column; align-items:center; gap:3px }
+  /* Con cinco pestañas a 480 px toca 96 px cada una: la letra baja y el texto no se parte.
+     Antes eran tres y sobraba espacio. */
+  nav button { flex:1; min-width:0; background:none; border:none; color:var(--tenue);
+               font:inherit; font-size:11px; font-weight:600; padding:11px 2px 13px;
+               cursor:pointer; display:flex; flex-direction:column; align-items:center;
+               gap:3px; white-space:nowrap }
   nav button.puesto { color:var(--verde) }
   nav .icono { font-size:17px; line-height:1 }
 
@@ -430,6 +435,7 @@
   <nav>
     <button data-ir="cartera" class="puesto"><span class="icono">◈</span>Mi dinero</button>
     <button data-ir="mercado"><span class="icono">≡</span>La bolsa</button>
+    <button data-ir="reportes"><span class="icono">▤</span>Reportes</button>
     <button data-ir="ajustes"><span class="icono">⚙</span>Ajustes</button>
   </nav>
 </div>
@@ -864,6 +870,12 @@ const Cartera = (() => {
       pendiente = hasta + 1;
     };
 
+    /*
+     * Lo REALIZADO: la ganancia o pérdida que ya quedó cobrada al vender. Es la cifra que
+     * enseña que vender congela el resultado — si vendió en el fondo de marzo de 2020, esa
+     * pérdida ya no se deshace aunque el precio se recupere al día siguiente.
+     */
+    let realizado = 0;
     for (const mov of movimientos) {
       cobrar(mov.dia);
       const p = porTicker.get(mov.ticker) || { acciones: 0, costo: 0, dividendos: 0 };
@@ -875,7 +887,9 @@ const Cartera = (() => {
         efectivo += mov.monto;
         // Costo promedio: al vender se retira la parte proporcional del costo.
         const parte = p.acciones > 0 ? mov.acciones / p.acciones : 0;
-        p.costo -= p.costo * parte;
+        const costoRetirado = p.costo * parte;
+        realizado += mov.monto - costoRetirado;
+        p.costo -= costoRetirado;
         p.acciones -= mov.acciones;
       }
       porTicker.set(mov.ticker, p);
@@ -909,9 +923,24 @@ const Cartera = (() => {
 
     const aportado = CAPITAL_INICIAL + aportaciones * APORTACION;
     const total = efectivo + enEmpresas;
+
+    // Lo que todavía NO está cobrado: sube y baja con el precio todos los días.
+    const enPapel = posiciones.reduce((s, p) => s + p.ganancia, 0);
+
+    /*
+     * ⚠️ IDENTIDAD QUE TIENE QUE CUMPLIRSE SIEMPRE:
+     *
+     *     ganancia  =  realizado + enPapel + dividendos
+     *
+     * Los tres pedazos no se suman a la ganancia, la EXPLICAN: lo realizado ya está adentro
+     * del efectivo. Si esta cuenta no cuadra, la pantalla de reportes está mintiendo, y
+     * mentirle a un niño sobre su dinero es peor que no enseñarle nada. Hay prueba.
+     */
     return {
       dia, efectivo, enEmpresas, posiciones, aportaciones, aportado,
       dividendos,          // lo que le pagaron por tener, en total
+      realizado,           // ganancia o pérdida ya cobrada al vender
+      enPapel,             // lo que subió o bajó y todavía no vende
       total,
       ganancia: total - aportado,
       gananciaPct: (total / aportado - 1) * 100,
@@ -990,6 +1019,66 @@ const Cartera = (() => {
    * seguía prometiendo "sin escoger nada", y la línea simplemente no estaba. Allá la vara es
    * VFINX, el fondo índice de Vanguard, que arranca el mismo día que la partida.
    */
+  /*
+   * Cada compra y cada venta, de la más nueva a la más vieja, para la pantalla de reportes.
+   *
+   * En las ventas dice cuánto se ganó o se perdió DE VERDAD: el monto recibido menos lo que
+   * habían costado esas acciones (a costo promedio). Eso es lo que no se puede deshacer.
+   *
+   * Va aparte de `calcular` a propósito: `calcular` se llama una vez por punto de la gráfica
+   * —decenas de veces por repintado— y armar este arreglo ahí sería tirar memoria de gratis.
+   */
+  function operaciones(estado, datos, dia) {
+    const porTicker = new Map();
+    const lista = [];
+    const movimientos = estado.movimientos
+      .filter(m => m.dia <= dia)
+      .sort((a, b) => a.dia - b.dia);
+
+    for (const mov of movimientos) {
+      const p = porTicker.get(mov.ticker) || { acciones: 0, costo: 0 };
+      const e = buscar(datos, mov.ticker);
+      const fila = {
+        dia: mov.dia,
+        ticker: mov.ticker,
+        nombre: e ? e.nombre : mov.ticker,
+        tipo: mov.tipo,
+        acciones: mov.acciones,
+        monto: mov.monto,
+        precio: mov.monto / mov.acciones,
+      };
+
+      if (mov.tipo === 'compra') {
+        p.acciones += mov.acciones;
+        p.costo += mov.monto;
+      } else {
+        const parte = p.acciones > 0 ? mov.acciones / p.acciones : 0;
+        const costoRetirado = p.costo * parte;
+        fila.costo = costoRetirado;
+        fila.precioPromedio = mov.acciones > 0 ? costoRetirado / mov.acciones : 0;
+        fila.realizado = mov.monto - costoRetirado;
+        fila.realizadoPct = costoRetirado > 0 ? (mov.monto / costoRetirado - 1) * 100 : 0;
+        // ¿Se salió por completo de esa empresa? Sirve para contar las apuestas cerradas.
+        fila.cerro = (p.acciones - mov.acciones) <= CENTAVO / 1000;
+        p.costo -= costoRetirado;
+        p.acciones -= mov.acciones;
+      }
+      porTicker.set(mov.ticker, p);
+      lista.push(fila);
+    }
+
+    lista.reverse();      // lo más reciente arriba, como cualquier estado de cuenta
+    const ventas = lista.filter(o => o.tipo === 'venta');
+    return {
+      lista,
+      compras: lista.length - ventas.length,
+      ventas: ventas.length,
+      realizado: ventas.reduce((s, o) => s + o.realizado, 0),
+      ganadoras: ventas.filter(o => o.realizado > 0).length,
+      perdedoras: ventas.filter(o => o.realizado < 0).length,
+    };
+  }
+
   function serieReferencia(datos, hastaDia, ticker = datos.referencia || 'SPY') {
     const serie = [];
     let acciones = 0, suelto = 0, previas = -1;
@@ -1017,7 +1106,7 @@ const Cartera = (() => {
     CAPITAL_INICIAL, APORTACION,
     nueva, calcular, comprar, vender, precio, existe,
     pagaDividendos, dividendosEntre,
-    aportacionesA, serieValor, serieReferencia, dinero,
+    aportacionesA, serieValor, serieReferencia, operaciones, dinero,
   };
 })();
 
@@ -1750,7 +1839,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1421';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1459';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -1991,6 +2080,7 @@ function pintar() {
   const main = $('#vista');
   if (fichaAbierta) pintarFicha(main, dia);
   else if (vista === 'mercado') pintarMercado(main, dia);
+  else if (vista === 'reportes') pintarReportes(main, dia);
   else if (vista === 'ajustes') pintarAjustes(main, r);
   else pintarCartera(main, dia, r);
 
@@ -2364,6 +2454,103 @@ function pintarAjustes(main, r) {
 }
 
 /* --- vista: la bolsa ----------------------------------------------------- */
+
+/*
+ * REPORTES — lo que ya pasó, por escrito.
+ *
+ * La cifra que manda es la GANANCIA REALIZADA: lo que quedó cobrado al vender. Es lo único
+ * que no se deshace. Si vendió en el fondo de marzo de 2020, ahí va a estar en rojo para
+ * siempre aunque el precio se haya recuperado al día siguiente.
+ *
+ * Eso no premia operar seguido — hace lo contrario. Una pantalla que solo enseñara el total
+ * de hoy esconde las decisiones; ésta las deja escritas.
+ */
+function pintarReportes(main, dia) {
+  const foto = Cartera.calcular(estado, DATOS, dia);
+  const ops = Cartera.operaciones(estado, DATOS, dia);
+  const signo = (n) => (n >= 0 ? 'sube' : 'baja');
+  const conSigno = (n) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${dinero(Math.abs(n))}`;
+
+  if (!ops.lista.length) {
+    main.innerHTML = `
+      <div class="titulo">Reportes</div>
+      <div class="vacio">
+        <p>Todavía no has comprado nada, así que no hay nada que reportar.</p>
+        <p>Cuando compres y vendas, aquí va a quedar <b>cada movimiento</b> y cuánto ganaste
+           o perdiste de verdad en cada venta.</p>
+        <button class="boton comprar" data-ir="mercado" style="max-width:220px;margin:0 auto">
+          Ver las empresas</button>
+      </div>`;
+    return;
+  }
+
+  /*
+   * Los tres pedazos EXPLICAN la ganancia, no se le suman: lo realizado ya vive dentro del
+   * efectivo. La identidad `ganancia = realizado + papel + dividendos` está probada en
+   * prueba_cartera.html — si algún día no cuadra, esta pantalla estaría mintiendo.
+   */
+  main.innerHTML = `
+    <div class="titulo">De dónde viene tu ganancia</div>
+    <div class="tarjetas">
+      <div class="tarjeta">
+        <i>Ya cobrado, al vender</i>
+        <b class="${signo(foto.realizado)}">${conSigno(foto.realizado)}</b>
+        <small>${ops.ventas ? 'esto ya no se deshace' : 'no has vendido nada'}</small>
+      </div>
+      <div class="tarjeta">
+        <i>Todavía en papel</i>
+        <b class="${signo(foto.enPapel)}">${conSigno(foto.enPapel)}</b>
+        <small>sube y baja todos los días</small>
+      </div>
+      <div class="tarjeta">
+        <i>Te pagaron por tener</i>
+        <b class="sube">${conSigno(foto.dividendos)}</b>
+        <small>sin vender una sola acción</small>
+      </div>
+      <div class="tarjeta">
+        <i>Ganancia, en total</i>
+        <b class="${signo(foto.ganancia)}">${conSigno(foto.ganancia)}</b>
+        <small>los tres juntos</small>
+      </div>
+    </div>
+
+    <div class="titulo">Lo que has hecho</div>
+    <div class="ajuste">
+      <p><b>${ops.compras}</b> ${ops.compras === 1 ? 'compra' : 'compras'} y
+         <b>${ops.ventas}</b> ${ops.ventas === 1 ? 'venta' : 'ventas'}.
+      ${ops.ventas ? `De las ventas, <b>${ops.ganadoras}</b> te
+         ${ops.ganadoras === 1 ? 'dejó' : 'dejaron'} ganancia y
+         <b>${ops.perdedoras}</b> ${ops.perdedoras === 1 ? 'dejó' : 'dejaron'} pérdida.`
+        : 'Todo lo que compraste, lo sigues teniendo.'}</p>
+      ${ops.ventas ? `<p style="margin-top:9px">Vender convierte el precio de ese día en
+         dinero de verdad: para bien y para mal.</p>` : ''}
+    </div>
+
+    <div class="titulo">Cada movimiento</div>
+    ${ops.lista.map(o => {
+      const esVenta = o.tipo === 'venta';
+      const fecha = Tiempo.comoTexto(fechaDe(o.dia), true);
+      return `<div class="fila" data-ficha="${o.ticker}">
+        ${circulo(o.ticker, o.nombre)}
+        <div class="quien">
+          <div class="nombre">${esVenta ? 'Vendiste' : 'Compraste'} ${escapar(o.nombre)}</div>
+          <div class="abajo">${fecha} · ${o.acciones.toFixed(2)} × ${dinero(o.precio)}</div>
+        </div>
+        <div class="cuanto">
+          <b>${esVenta ? '+' : '−'}${dinero(o.monto)}</b>
+          ${esVenta
+            ? `<i class="${signo(o.realizado)}">${conSigno(o.realizado)}
+                 (${o.realizadoPct >= 0 ? '+' : '−'}${Math.abs(o.realizadoPct).toFixed(0)}%)</i>`
+            : `<i style="color:var(--tenue)">salió del efectivo</i>`}
+        </div>
+      </div>`;
+    }).join('')}
+
+    <div class="ajuste" style="margin-top:12px">
+      <p>En las ventas, el número de abajo es lo que <b>ganaste o perdiste de verdad</b>:
+         lo que recibiste menos lo que te habían costado esas acciones.</p>
+    </div>`;
+}
 
 function pintarMercado(main, dia) {
   const foto = Cartera.calcular(estado, DATOS, dia);
