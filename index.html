@@ -211,14 +211,38 @@
   /* Ticker arriba y nombre abajo, como en las apps de bolsa de verdad: así se le van
      pegando los tickers, que es el idioma en el que habla el mercado. */
   .fila .tick { font-weight:750; font-size:16px; letter-spacing:.2px }
-  /* La tercera línea de cada posición: a cuánto la compró contra a cuánto está hoy. Chica y
-     apagada — el dato que manda sigue siendo la ganancia de la derecha. */
-  .fila .precios { color:var(--tenue); font-size:11.5px; margin-top:2px;
-                   font-variant-numeric:tabular-nums; white-space:nowrap;
-                   overflow:hidden; text-overflow:ellipsis }
-  .fila .precios b { color:var(--suave); font-weight:700 }
-  .fila .precios b.sube { color:var(--verde) } .fila .precios b.baja { color:var(--rojo) }
-  .fila .precios span { opacity:.6; margin:0 2px }
+  /* --- "Lo que tienes" en columnas, como un estado de cuenta ---
+     Tres anchos FIJOS a la derecha y el nombre encogiéndose: así las cifras quedan alineadas
+     entre renglones, que es todo el punto de una tabla. A 480 px caben 68+72+52 = 192 px de
+     números; lo que sobra es para el logo y el ticker. */
+  /* El `15px` de la derecha no es un capricho: las filas llevan borde de 1px y el encabezado
+     no, así que con 14px los títulos quedaban un píxel corridos respecto a sus cifras. En una
+     tabla eso se nota aunque no se sepa por qué. */
+  .tabla .encabezado { display:flex; align-items:center; gap:12px; padding:0 15px 5px 14px;
+                       color:var(--tenue); font-size:10.5px; font-weight:700;
+                       letter-spacing:.6px; text-transform:uppercase }
+  .tabla .encabezado .hueco { flex:1 }
+  .tabla .encabezado span:not(.hueco) { text-align:right; flex:none }
+  .tabla .encabezado span:nth-child(2) { width:68px }
+  .tabla .encabezado span:nth-child(3) { width:72px }
+  .tabla .encabezado span:nth-child(4) { width:52px }
+
+  .tabla .fila .quien { flex:1; min-width:0 }
+  .tabla .fila .col { flex:none; text-align:right; font-size:13px; font-weight:600;
+                      font-variant-numeric:tabular-nums; color:var(--suave);
+                      white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  /* ⚠️ Clases y NO `nth-of-type`: cuenta entre elementos del mismo TIPO, y como el logo y el
+     nombre también son <div>, las reglas le pegaban al logo. Las columnas salían del ancho de
+     su contenido y no se alineaban entre renglones — que es justo lo que una tabla tiene que
+     hacer. Costó el 16-ago-2026. */
+  .tabla .fila .col.costo  { width:68px }
+  .tabla .fila .col.hoy    { width:72px }
+  .tabla .fila .col.cambio { width:52px }
+  /* El valor de HOY es la cifra que se busca: más grande y con el color de la ganancia
+     contra lo que costó. La resta con la columna de al lado está a la vista. */
+  .tabla .fila .col.fuerte { font-size:14.5px; font-weight:750 }
+  .tabla .fila .col.sube { color:var(--verde) } .tabla .fila .col.baja { color:var(--rojo) }
+  .tabla .fila .col.quieto { color:var(--tenue) }
 
   .fila .quien .nombre_chico { color:var(--suave); font-size:12.5px; margin-top:1px;
      white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
@@ -1873,7 +1897,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1544';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1555';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2177,35 +2201,45 @@ function pintarCartera(main, dia, r) {
       <div class="tarjeta"><i>Te han pagado por tener</i><b>${dinero(foto.dividendos)}<em class="moneda">${MONEDA}</em></b></div>
     </div>
     ${foto.posiciones.length ? `
-      <!-- ⚠️ Las POSICIONES van primero, antes de la rueda. Antes arrancaban en el píxel
-           517 de 900 —debajo de la línea de flotación, tras la gráfica, los chips, la
-           leyenda, dos tarjetas y la rueda— y Marco llegó a dudar de que la lista existiera.
-           Un bróker enseña las posiciones primero; la rueda es el extra. -->
-      <div class="titulo">Lo que tienes</div>
-      <div class="lista">${foto.posiciones.map(p => `
-        <button class="fila" data-ficha="${p.ticker}">
-          ${circulo(p.ticker, p.nombre)}
-          <div class="quien">
-            <div class="tick">${p.ticker}
-              ${p.dividendos > 0.005
-                ? `<span class="sello">+${dinero(p.dividendos)} pagados</span>` : ''}</div>
-            <div class="nombre_chico">${escapar(p.nombre)} · ${p.acciones.toFixed(2)} acciones</div>
-            <!-- Lo que un bróker de verdad enseña en cada posición y aquí faltaba: a cuánto la
-                 compró y a cuánto está hoy. Sin esas dos cifras, la ganancia es un número que
-                 aparece de la nada; con ellas se ve de dónde sale. -->
-            <div class="precios">pagaste <b>${dinero(p.precioPromedio)}</b>
-              <span>→</span> hoy <b class="${clase(p.precio - p.precioPromedio)}">${dinero(p.precio)}</b></div>
-          </div>
-          <div class="cuanto"><b>${dinero(p.valor)}</b>
-            <div class="mueve ${clase(p.ganancia)}">
-              <span>${conSigno(p.ganancia)}</span>${pct(p.gananciaPct)}</div></div>
-        </button>`).join('')}</div>
       <div class="titulo">En qué está tu dinero</div>
       <div class="reparto_caja">
         <svg class="rueda" id="rueda"></svg>
         <div class="patas" id="patas"></div>
       </div>
-      <div class="quienes" id="quienes"></div>`
+      <div class="quienes" id="quienes"></div>
+      <!--
+        En COLUMNAS, como un estado de cuenta y como lo pidió Marco el 16-ago-2026:
+
+          COSTO    lo que pagó por esa posición (todo lo que le metió)
+          HOY      lo que vale ahora — la resta contra COSTO es la ganancia, a la vista
+          CAMBIO   el movimiento del DÍA, solo en %, sin la cantidad
+
+        El cambio es el del día y NO la ganancia acumulada: para eso están las dos primeras
+        columnas. Sin cantidad, porque con tres cifras por renglón el peso se lo llevaba el
+        número que menos dice.
+      -->
+      <div class="titulo">Lo que tienes</div>
+      <div class="lista tabla">
+        <div class="encabezado">
+          <span class="hueco"></span>
+          <span>Costo</span><span>Hoy</span><span>Cambio</span>
+        </div>
+        ${foto.posiciones.map(p => {
+          const m = movimiento(p.ticker, dia);
+          return `
+        <button class="fila" data-ficha="${p.ticker}">
+          ${circulo(p.ticker, p.nombre)}
+          <div class="quien">
+            <div class="tick">${p.ticker}
+              ${p.dividendos > 0.005
+                ? `<span class="sello">+${dinero(p.dividendos)}</span>` : ''}</div>
+            <div class="nombre_chico">${p.acciones.toFixed(2)} acciones</div>
+          </div>
+          <div class="col costo">${dinero(p.costo)}</div>
+          <div class="col hoy fuerte ${clase(p.ganancia)}">${dinero(p.valor)}</div>
+          <div class="col cambio ${m ? colorDe(m) : 'quieto'}">${m ? pct(m.pct) : '—'}</div>
+        </button>`;
+        }).join('')}</div>`
       : `<div class="vacio">
           <p>Todavía no tienes nada. Tienes <b>${dinero(foto.efectivo)}</b> esperando.<br>
           Nadie te apura: el dinero sin invertir no pierde nada aquí.</p>
