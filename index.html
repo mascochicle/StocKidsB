@@ -211,6 +211,15 @@
   /* Ticker arriba y nombre abajo, como en las apps de bolsa de verdad: así se le van
      pegando los tickers, que es el idioma en el que habla el mercado. */
   .fila .tick { font-weight:750; font-size:16px; letter-spacing:.2px }
+  /* La tercera línea de cada posición: a cuánto la compró contra a cuánto está hoy. Chica y
+     apagada — el dato que manda sigue siendo la ganancia de la derecha. */
+  .fila .precios { color:var(--tenue); font-size:11.5px; margin-top:2px;
+                   font-variant-numeric:tabular-nums; white-space:nowrap;
+                   overflow:hidden; text-overflow:ellipsis }
+  .fila .precios b { color:var(--suave); font-weight:700 }
+  .fila .precios b.sube { color:var(--verde) } .fila .precios b.baja { color:var(--rojo) }
+  .fila .precios span { opacity:.6; margin:0 2px }
+
   .fila .quien .nombre_chico { color:var(--suave); font-size:12.5px; margin-top:1px;
      white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
   /* El sector, con la MISMA bolita de color que su rebanada en la rueda. Así el niño ata
@@ -1864,7 +1873,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1526';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1541';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2183,6 +2192,11 @@ function pintarCartera(main, dia, r) {
               ${p.dividendos > 0.005
                 ? `<span class="sello">+${dinero(p.dividendos)} pagados</span>` : ''}</div>
             <div class="nombre_chico">${escapar(p.nombre)} · ${p.acciones.toFixed(2)} acciones</div>
+            <!-- Lo que un bróker de verdad enseña en cada posición y aquí faltaba: a cuánto la
+                 compró y a cuánto está hoy. Sin esas dos cifras, la ganancia es un número que
+                 aparece de la nada; con ellas se ve de dónde sale. -->
+            <div class="precios">pagaste <b>${dinero(p.precioPromedio)}</b>
+              <span>→</span> hoy <b class="${clase(p.precio - p.precioPromedio)}">${dinero(p.precio)}</b></div>
           </div>
           <div class="cuanto"><b>${dinero(p.valor)}</b>
             <div class="mueve ${clase(p.ganancia)}">
