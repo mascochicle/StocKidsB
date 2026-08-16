@@ -1861,7 +1861,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1515';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1524';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2162,7 +2162,7 @@ function pintarCartera(main, dia, r) {
     <div class="leido" id="leido"></div>
     <div class="tarjetas">
       <div class="tarjeta"><i>Sin invertir</i><b>${dinero(foto.efectivo)}<em class="moneda">${MONEDA}</em></b></div>
-      <div class="tarjeta"><i>Te han pagado por tener</i><b>${dinero(foto.dividendos)}</b></div>
+      <div class="tarjeta"><i>Te han pagado por tener</i><b>${dinero(foto.dividendos)}<em class="moneda">${MONEDA}</em></b></div>
     </div>
     ${foto.posiciones.length ? `
       <div class="titulo">En qué está tu dinero</div>
@@ -2518,22 +2518,22 @@ function pintarReportes(main, dia) {
     <div class="tarjetas">
       <div class="tarjeta">
         <i>Ya cobrado, al vender</i>
-        <b class="${signo(foto.realizado)}">${conSigno(foto.realizado)}</b>
+        <b class="${signo(foto.realizado)}">${conSigno(foto.realizado)}<em class="moneda">${MONEDA}</em></b>
         <small>${ops.ventas ? 'esto ya no se deshace' : 'no has vendido nada'}</small>
       </div>
       <div class="tarjeta">
         <i>Todavía en papel</i>
-        <b class="${signo(foto.enPapel)}">${conSigno(foto.enPapel)}</b>
+        <b class="${signo(foto.enPapel)}">${conSigno(foto.enPapel)}<em class="moneda">${MONEDA}</em></b>
         <small>sube y baja todos los días</small>
       </div>
       <div class="tarjeta">
         <i>Te pagaron por tener</i>
-        <b class="sube">${conSigno(foto.dividendos)}</b>
+        <b class="sube">${conSigno(foto.dividendos)}<em class="moneda">${MONEDA}</em></b>
         <small>sin vender una sola acción</small>
       </div>
       <div class="tarjeta">
         <i>Ganancia, en total</i>
-        <b class="${signo(foto.ganancia)}">${conSigno(foto.ganancia)}</b>
+        <b class="${signo(foto.ganancia)}">${conSigno(foto.ganancia)}<em class="moneda">${MONEDA}</em></b>
         <small>los tres juntos</small>
       </div>
     </div>
