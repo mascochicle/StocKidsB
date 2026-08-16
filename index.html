@@ -218,16 +218,17 @@
   /* El `15px` de la derecha no es un capricho: las filas llevan borde de 1px y el encabezado
      no, así que con 14px los títulos quedaban un píxel corridos respecto a sus cifras. En una
      tabla eso se nota aunque no se sepa por qué. */
-  .tabla .encabezado { display:flex; align-items:center; gap:9px; padding:0 15px 5px 14px;
+  .tabla .encabezado { display:flex; align-items:center; gap:7px; padding:0 15px 5px 14px;
                        color:var(--tenue); font-size:10.5px; font-weight:700;
                        letter-spacing:.6px; text-transform:uppercase }
   .tabla .encabezado .hueco { flex:1 }
   .tabla .encabezado span:not(.hueco) { text-align:right; flex:none }
-  .tabla .encabezado span:nth-child(2) { width:62px }
-  .tabla .encabezado span:nth-child(3) { width:78px }
-  .tabla .encabezado span:nth-child(4) { width:46px }
+  .tabla .encabezado span:nth-child(2) { width:56px }   /* Cant. */
+  .tabla .encabezado span:nth-child(3) { width:58px }   /* Costo */
+  .tabla .encabezado span:nth-child(4) { width:72px }   /* Ganancia */
+  .tabla .encabezado span:nth-child(5) { width:52px }   /* % */
 
-  .tabla .fila { gap:9px }
+  .tabla .fila { gap:7px }
   /* El nombre NO se recorta: es la columna que identifica el renglón. Se le deja el espacio
      que sobra tras los tres números, y las acciones se leen completas. */
   .tabla .fila .quien { flex:1; min-width:0 }
@@ -239,14 +240,19 @@
      nombre también son <div>, las reglas le pegaban al logo. Las columnas salían del ancho de
      su contenido y no se alineaban entre renglones — que es justo lo que una tabla tiene que
      hacer. Costó el 16-ago-2026. */
-  .tabla .fila .col.costo  { width:62px }
-  .tabla .fila .col.gana   { width:78px }
-  .tabla .fila .col.cambio { width:46px }
+  .tabla .fila .col.cant  { width:56px }
+  .tabla .fila .col.costo { width:58px }
+  .tabla .fila .col.gana  { width:72px }
+  .tabla .fila .col.pct   { width:52px }
   /* El valor de HOY es la cifra que se busca: más grande y con el color de la ganancia
      contra lo que costó. La resta con la columna de al lado está a la vista. */
   .tabla .fila .col.fuerte { font-size:14.5px; font-weight:750 }
   .tabla .fila .col.sube { color:var(--verde) } .tabla .fila .col.baja { color:var(--rojo) }
   .tabla .fila .col.quieto { color:var(--tenue) }
+  .tabla .fila .col.pct { font-weight:700 }
+  /* El nombre en chico bajo el ticker: con la cantidad ya en columna, esta línea queda libre
+     para decir de quién se trata, que es lo que un niño reconoce antes que el ticker. */
+  .tabla .fila .nombre_chico { overflow:hidden; text-overflow:ellipsis }
 
   .fila .quien .nombre_chico { color:var(--suave); font-size:12.5px; margin-top:1px;
      white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
@@ -1902,7 +1908,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1626';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1637';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2044,6 +2050,24 @@ const unidadDe = (ticker) => {
 const dineroCorto = (n) => Math.abs(n) >= 10000
   ? (n < 0 ? '-' : '') + '$' + Math.round(Math.abs(n)).toLocaleString('en-US')
   : dinero(n);
+/*
+ * El porcentaje de la posición, para una columna angosta.
+ *
+ * Arriba de 10 veces deja de ser porcentaje y pasa a multiplicador: NVIDIA desde 2015 da
+ * +46,808%, que ni cabe ni significa nada. **×469 sí**: "multiplicaste tu dinero por 469" es
+ * una frase que un niño entiende sin explicación, y es exactamente el mismo dato.
+ * Por el lado malo nunca se llega ahí — lo más que se puede perder es el 100%.
+ */
+const pctCorto = (n) => {
+  const s = n >= 0 ? '+' : '−';
+  const a = Math.abs(n);
+  if (a >= 1000) {
+    const veces = 1 + a / 100;
+    return '×' + (veces >= 100 ? Math.round(veces) : veces.toFixed(1));
+  }
+  return s + (a >= 100 ? Math.round(a) : a.toFixed(1)) + '%';
+};
+
 const conSignoCorto = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + dineroCorto(Math.abs(n));
 const escapar = s => String(s).replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -2248,25 +2272,26 @@ function pintarCartera(main, dia, r) {
       <div class="lista tabla">
         <div class="encabezado">
           <span class="hueco">Inst.</span>
-          <span>Costo</span><span>Ganancia</span><span>Cambio</span>
+          <span>Cant.</span><span>Costo</span><span>Ganancia</span><span>%</span>
         </div>
-        ${foto.posiciones.map(p => {
-          const m = movimiento(p.ticker, dia);
-          return `
+        ${foto.posiciones.map(p => `
         <button class="fila" data-ficha="${p.ticker}">
           ${circulo(p.ticker, p.nombre)}
           <div class="quien">
-            <div class="tick">${p.ticker}
-              ${p.dividendos > 0.005
+            <div class="tick">${p.ticker}</div>
+            <!-- El sello de dividendos va con el NOMBRE, no con el ticker: con cuatro
+                 columnas la primera se angosta, no cabían juntos y el renglón se hacía más
+                 alto que los demás. Una tabla con renglones de distinta altura deja de
+                 leerse como tabla. -->
+            <div class="nombre_chico">${escapar(p.nombre)}${p.dividendos > 0.005
                 ? `<span class="sello">+${dinero(p.dividendos)}</span>` : ''}</div>
-            <div class="nombre_chico">${p.acciones.toLocaleString('en-US',
-              { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${unidadDe(p.ticker)}</div>
           </div>
+          <div class="col cant">${p.acciones.toLocaleString('en-US',
+            { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           <div class="col costo">${dineroCorto(p.costo)}</div>
           <div class="col gana fuerte ${clase(p.ganancia)}">${conSignoCorto(p.ganancia)}</div>
-          <div class="col cambio ${m ? colorDe(m) : 'quieto'}">${m ? pct(m.pct) : '—'}</div>
-        </button>`;
-        }).join('')}</div>`
+          <div class="col pct ${clase(p.ganancia)}">${pctCorto(p.gananciaPct)}</div>
+        </button>`).join('')}</div>`
       : `<div class="vacio">
           <p>Todavía no tienes nada. Tienes <b>${dinero(foto.efectivo)}</b> esperando.<br>
           Nadie te apura: el dinero sin invertir no pierde nada aquí.</p>
