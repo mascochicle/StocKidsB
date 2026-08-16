@@ -118,6 +118,10 @@
   .resumen { padding:2px 18px 0 }
   /* `clamp` con `cqi` no: el total se encoge solo cuando la cartera llega a seis cifras, para
      que nunca empuje al número verde fuera de la pantalla. */
+  /* La moneda, pegada al número grande pero sin competir con él: chica, apagada y arriba.
+     Es una etiqueta, no una cifra. */
+  .resumen .cifra em { font-style:normal; font-size:13px; font-weight:700; color:var(--tenue);
+                       letter-spacing:.5px; margin-left:6px; vertical-align:middle }
   .resumen .cifra { font-size:clamp(26px, 8.5vw, 40px); font-weight:800; letter-spacing:-1.8px;
                     line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap;
                     overflow:hidden; text-overflow:ellipsis }
@@ -329,6 +333,8 @@
                   border:1px solid var(--borde); border-radius:13px; padding:12px 14px;
                   margin-bottom:12px }
   .cuanto_input span { color:var(--suave); font-size:20px; font-weight:700 }
+  .cuanto_input em { font-style:normal; color:var(--tenue); font-size:13px; font-weight:700;
+                     letter-spacing:.5px; flex:none }
   .cuanto_input input { flex:1; background:none; border:none; color:var(--texto);
                         font:inherit; font-size:22px; font-weight:700; outline:none;
                         font-variant-numeric:tabular-nums; min-width:0 }
@@ -537,6 +543,10 @@ const Datos = (() => {
       ritmo: crudo.ritmo || 12,
       // Contra qué se mide "sin escoger nada". Depende de la época: el SPY no existía en 1980.
       referencia: crudo.referencia || 'SPY',
+      // En qué moneda están los precios. Importa porque el Visor está en PESOS y las dos son
+      // pestañas de la misma app: sin marcarlo, el niño compara $1,012 con $2,555 creyendo
+      // que son lo mismo. Lo pidió Marco el 16-ago-2026.
+      moneda: crudo.moneda || 'USD',
       n: total,
       fechaMs: (i) => baseMs + dias[i] * MS_DIA,
       fecha: (i) => new Date(baseMs + dias[i] * MS_DIA).toISOString().slice(0, 10),
@@ -1758,6 +1768,12 @@ const ARRANQUE = DATOS.arranque;      // 2015: lo de antes es historia, no parti
    unos precios de 1980 corran con el ritmo de la partida de 2015. */
 Tiempo.usarRitmo(DATOS.ritmo);
 
+/* La moneda sale de los datos, no cableada: StocKids está en dólares y el Visor en pesos, y
+   son pestañas de la misma app. Sin marcarlo, comparar $1,012 con $2,555 parece razonable
+   y no lo es. Se pone donde el niño MIRA y donde DECIDE, no en cada renglón: repetirlo en
+   cada cotización lo vuelve ruido y deja de leerse. */
+const MONEDA = DATOS.moneda;
+
 const fechaDe = (i) => new Date(DATOS.fechaMs(i));
 
 /* Qué vista de la gráfica está puesta. No se guarda: es del momento, no de la partida. */
@@ -1839,7 +1855,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1459';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1508';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2117,7 +2133,7 @@ function pintarCartera(main, dia, r) {
       <div class="resumen_fila">
         <div class="resumen_izq">
           <button class="dueno" data-nombre="1">El dinero de <u>${escapar(estado.nombre)}</u></button>
-          <div class="cifra" id="totalGrande">${dinero(foto.total)}</div>
+          <div class="cifra" id="totalGrande">${dinero(foto.total)}<em>${MONEDA}</em></div>
         </div>
         <div class="invertido"><b>${dinero(foto.enEmpresas)}</b><i>invertido</i></div>
       </div>
@@ -2368,6 +2384,8 @@ function pintarAjustes(main, r) {
           { day: 'numeric', month: 'long', year: 'numeric' })}</b> y llevas
         <b>${estado.movimientos.length}</b> ${estado.movimientos.length === 1
           ? 'movimiento' : 'movimientos'}.</p>
+      <p style="margin-top:9px">Todo está en <b>dólares de Estados Unidos (${MONEDA})</b>,
+        porque así cotizan estas empresas. Un dólar no es un peso.</p>
       <p style="margin-top:9px">Todo vive en este teléfono y no sale de aquí.</p>
     </div>
 
@@ -2793,10 +2811,13 @@ function pintarHoja(dia) {
             ${alcanza(a) && Math.abs(valorAtajo(a) - monto) < 0.005 && monto > 0
               ? 'class="elegido"' : ''}>
             ${comprando ? '$' + a : a}</button>`).join('')}</div>
+        <!-- La moneda va aquí porque éste es el momento en que DECIDE: teclea "200" y tiene
+             que saber que son 200 dólares, no 200 pesos. -->
         <div class="cuanto_input">
           <span>$</span>
           <input type="text" inputmode="decimal" id="montoInput"
                  value="${monto ? monto.toFixed(2) : ''}" placeholder="0.00">
+          <em>${MONEDA}</em>
         </div>
         <div class="previo" id="previo">${
           textoPrevio(comprando, monto, px, e, foto.efectivo)}</div>
