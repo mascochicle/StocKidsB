@@ -1873,7 +1873,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1541';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1544';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2177,12 +2177,10 @@ function pintarCartera(main, dia, r) {
       <div class="tarjeta"><i>Te han pagado por tener</i><b>${dinero(foto.dividendos)}<em class="moneda">${MONEDA}</em></b></div>
     </div>
     ${foto.posiciones.length ? `
-      <div class="titulo">En qué está tu dinero</div>
-      <div class="reparto_caja">
-        <svg class="rueda" id="rueda"></svg>
-        <div class="patas" id="patas"></div>
-      </div>
-      <div class="quienes" id="quienes"></div>
+      <!-- ⚠️ Las POSICIONES van primero, antes de la rueda. Antes arrancaban en el píxel
+           517 de 900 —debajo de la línea de flotación, tras la gráfica, los chips, la
+           leyenda, dos tarjetas y la rueda— y Marco llegó a dudar de que la lista existiera.
+           Un bróker enseña las posiciones primero; la rueda es el extra. -->
       <div class="titulo">Lo que tienes</div>
       <div class="lista">${foto.posiciones.map(p => `
         <button class="fila" data-ficha="${p.ticker}">
@@ -2201,7 +2199,13 @@ function pintarCartera(main, dia, r) {
           <div class="cuanto"><b>${dinero(p.valor)}</b>
             <div class="mueve ${clase(p.ganancia)}">
               <span>${conSigno(p.ganancia)}</span>${pct(p.gananciaPct)}</div></div>
-        </button>`).join('')}</div>`
+        </button>`).join('')}</div>
+      <div class="titulo">En qué está tu dinero</div>
+      <div class="reparto_caja">
+        <svg class="rueda" id="rueda"></svg>
+        <div class="patas" id="patas"></div>
+      </div>
+      <div class="quienes" id="quienes"></div>`
       : `<div class="vacio">
           <p>Todavía no tienes nada. Tienes <b>${dinero(foto.efectivo)}</b> esperando.<br>
           Nadie te apura: el dinero sin invertir no pierde nada aquí.</p>
