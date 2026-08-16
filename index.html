@@ -118,10 +118,14 @@
   .resumen { padding:2px 18px 0 }
   /* `clamp` con `cqi` no: el total se encoge solo cuando la cartera llega a seis cifras, para
      que nunca empuje al número verde fuera de la pantalla. */
-  /* La moneda, pegada al número grande pero sin competir con él: chica, apagada y arriba.
-     Es una etiqueta, no una cifra. */
-  .resumen .cifra em { font-style:normal; font-size:13px; font-weight:700; color:var(--tenue);
-                       letter-spacing:.5px; margin-left:6px; vertical-align:middle }
+  /* La moneda va pegada a cada cifra de dinero. Marco la pidió más grande y con más tono el
+     16-ago-2026: con `--tenue` y 13px se perdía. Sigue siendo etiqueta y no cifra —por eso
+     no compite con el número— pero tiene que LEERSE, que es todo el punto de ponerla. */
+  em.moneda { font-style:normal; font-weight:700; color:var(--suave); letter-spacing:.5px;
+              margin-left:6px; vertical-align:middle }
+  .resumen .cifra em.moneda { font-size:17px }
+  .invertido em.moneda { font-size:13px; margin-left:4px }
+  .tarjeta em.moneda { font-size:12.5px; margin-left:4px }
   .resumen .cifra { font-size:clamp(26px, 8.5vw, 40px); font-weight:800; letter-spacing:-1.8px;
                     line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap;
                     overflow:hidden; text-overflow:ellipsis }
@@ -333,7 +337,9 @@
                   border:1px solid var(--borde); border-radius:13px; padding:12px 14px;
                   margin-bottom:12px }
   .cuanto_input span { color:var(--suave); font-size:20px; font-weight:700 }
-  .cuanto_input em { font-style:normal; color:var(--tenue); font-size:13px; font-weight:700;
+  /* Va DESPUÉS de `em.moneda` y con la misma especificidad, así que gana esta: hay que
+     repetir el tono aquí o el USD de la hoja se queda apagado mientras el resto no. */
+  .cuanto_input em { font-style:normal; color:var(--suave); font-size:15px; font-weight:700;
                      letter-spacing:.5px; flex:none }
   .cuanto_input input { flex:1; background:none; border:none; color:var(--texto);
                         font:inherit; font-size:22px; font-weight:700; outline:none;
@@ -1855,7 +1861,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1508';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1515';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2133,9 +2139,9 @@ function pintarCartera(main, dia, r) {
       <div class="resumen_fila">
         <div class="resumen_izq">
           <button class="dueno" data-nombre="1">El dinero de <u>${escapar(estado.nombre)}</u></button>
-          <div class="cifra" id="totalGrande">${dinero(foto.total)}<em>${MONEDA}</em></div>
+          <div class="cifra" id="totalGrande">${dinero(foto.total)}<em class="moneda">${MONEDA}</em></div>
         </div>
-        <div class="invertido"><b>${dinero(foto.enEmpresas)}</b><i>invertido</i></div>
+        <div class="invertido"><b>${dinero(foto.enEmpresas)}<em class="moneda">${MONEDA}</em></b><i>invertido</i></div>
       </div>
       <div class="cambio ${quieto ? 'quieto' : clase(foto.ganancia)}" id="cambioGrande">
         ${quieto ? 'Todavía sin cambios'
@@ -2155,7 +2161,7 @@ function pintarCartera(main, dia, r) {
     </div>
     <div class="leido" id="leido"></div>
     <div class="tarjetas">
-      <div class="tarjeta"><i>Sin invertir</i><b>${dinero(foto.efectivo)}</b></div>
+      <div class="tarjeta"><i>Sin invertir</i><b>${dinero(foto.efectivo)}<em class="moneda">${MONEDA}</em></b></div>
       <div class="tarjeta"><i>Te han pagado por tener</i><b>${dinero(foto.dividendos)}</b></div>
     </div>
     ${foto.posiciones.length ? `
@@ -2817,7 +2823,7 @@ function pintarHoja(dia) {
           <span>$</span>
           <input type="text" inputmode="decimal" id="montoInput"
                  value="${monto ? monto.toFixed(2) : ''}" placeholder="0.00">
-          <em>${MONEDA}</em>
+          <em class="moneda">${MONEDA}</em>
         </div>
         <div class="previo" id="previo">${
           textoPrevio(comprando, monto, px, e, foto.efectivo)}</div>
