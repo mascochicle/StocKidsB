@@ -334,9 +334,21 @@
   .reparto.partida b { color:var(--texto) }
   .reparto b { color:var(--ambar) }
 
-  .tengo { margin:12px 18px 0; padding:12px 14px; border-radius:13px; background:var(--panel);
-           border:1px solid var(--borde); font-size:13.5px; color:var(--suave) }
-  .tengo b { color:var(--texto); font-variant-numeric:tabular-nums }
+  /* Dos columnas de etiqueta+dato. A 480 px cada una tiene ~200 px: alcanza para el rótulo
+     completo y una cifra de seis dígitos sin apretarse. */
+  .tengo { margin:12px 18px 0; padding:4px 14px 10px; border-radius:13px;
+           background:var(--panel); border:1px solid var(--borde);
+           display:grid; grid-template-columns:1fr 1fr; column-gap:14px }
+  .tengo .par { display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+                padding:7px 0; border-bottom:1px solid var(--raya); min-width:0 }
+  /* Los dos últimos de cada columna sin raya: una línea al aire se ve como un error. */
+  .tengo .par:nth-last-child(-n+2):not(.ancho) { border-bottom:none }
+  .tengo .par.ancho { grid-column:1 / -1; border-bottom:none }
+  .tengo .par i { font-style:normal; color:var(--suave); font-size:12.5px;
+                  white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .tengo .par b { color:var(--texto); font-size:14.5px; font-weight:750;
+                  font-variant-numeric:tabular-nums; white-space:nowrap; flex:none }
+  .tengo .par b.sube { color:var(--verde) } .tengo .par b.baja { color:var(--rojo) }
 
   /* --- botones --- */
   .acciones { display:flex; gap:10px; padding:16px 18px 0 }
@@ -1912,7 +1924,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1646';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260816-1700';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2777,12 +2789,25 @@ function pintarFicha(main, dia) {
       <button class="boton vender" data-vender="${e.ticker}"
         ${mia ? '' : 'disabled'}>Vender</button>
     </div>
-    ${mia ? `<div class="tengo">Tienes <b>${mia.acciones.toFixed(2)}</b> que valen
-        <b>${dinero(mia.valor)}</b>. Te costaron <b>${dinero(mia.costo)}</b> en total
-        (<b>${dinero(mia.precioPromedio)}</b> cada una),
-        o sea que vas <b class="${clase(mia.ganancia)}">${conSigno(mia.ganancia)}</b>.
-        ${mia.dividendos > 0.005
-          ? `Además te ha pagado <b>${dinero(mia.dividendos)}</b> en dividendos.` : ''}</div>` : ''}
+    ${mia ? `
+      <!-- Caja de datos, no párrafo. La pidió Marco el 16-ago-2026 con el boceto de su
+           broker: en una ficha se viene a CONSULTAR un dato concreto, y en una frase hay que
+           leerla entera para encontrarlo. Se usa el mismo vocabulario que la tabla de
+           posiciones —Cantidad, Costo, Ganancia— y no la jerga (PSCÓN, P/G N.RLZ). -->
+      <div class="tengo">
+        <div class="par"><i>Cantidad</i><b>${mia.acciones.toLocaleString('en-US',
+          { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></div>
+        <div class="par"><i>Valor hoy</i><b>${dinero(mia.valor)}</b></div>
+        <div class="par"><i>Costo</i><b>${dinero(mia.costo)}</b></div>
+        <div class="par"><i>Ganancia</i>
+          <b class="${clase(mia.ganancia)}">${conSignoCorto(mia.ganancia)}</b></div>
+        <div class="par"><i>Pagaste cada una</i><b>${dinero(mia.precioPromedio)}</b></div>
+        <div class="par"><i>Ganancia %</i>
+          <b class="${clase(mia.ganancia)}">${pctCorto(mia.gananciaPct)}</b></div>
+        ${mia.dividendos > 0.005 ? `
+        <div class="par ancho"><i>Te ha pagado en dividendos</i>
+          <b class="sube">${dinero(mia.dividendos)}</b></div>` : ''}
+      </div>` : ''}
     ${pagados.length ? `<div class="reparto">
         <b>Te paga por tenerla.</b> ${escapar(e.nombre)} reparte parte de sus ganancias entre
         quienes tienen sus acciones. Van ${pagados.length} pagos; el último fue de
