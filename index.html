@@ -218,14 +218,20 @@
   /* El `15px` de la derecha no es un capricho: las filas llevan borde de 1px y el encabezado
      no, así que con 14px los títulos quedaban un píxel corridos respecto a sus cifras. En una
      tabla eso se nota aunque no se sepa por qué. */
-  .tabla .encabezado { display:flex; align-items:center; gap:7px; padding:0 15px 5px 14px;
-                       color:var(--tenue); font-size:10.5px; font-weight:700;
-                       letter-spacing:.6px; text-transform:uppercase }
-  .tabla .encabezado .hueco { flex:1 }
-  .tabla .encabezado span:not(.hueco) { text-align:right; flex:none }
-  .tabla .encabezado span:nth-child(2) { width:62px }   /* Cant. */
-  .tabla .encabezado span:nth-child(3) { width:78px }   /* Ganancia */
-  .tabla .encabezado span:nth-child(4) { width:56px }   /* % */
+  .tabla .encabezado { display:flex; align-items:stretch; gap:7px; padding:0 15px 5px 14px }
+  /* Botones, no rótulos: se tocan para ordenar. Se les quita todo el aspecto de botón menos
+     el área de toque, que a 480 px es lo único que importa. */
+  .tabla .encabezado .orden { background:none; border:none; padding:5px 0; cursor:pointer;
+                              font:inherit; color:var(--tenue); font-size:10.5px;
+                              font-weight:700; letter-spacing:.6px; text-transform:uppercase;
+                              text-align:right; flex:none; white-space:nowrap }
+  .tabla .encabezado .orden.hueco { flex:1; text-align:left }
+  .tabla .encabezado .orden.puesta { color:var(--texto) }
+  /* Los anchos los comparten encabezado y filas, por CLASE. ⚠️ Nada de `nth-child` ni
+     `nth-of-type` aquí: ya costó una vez que las reglas le pegaran al logo. */
+  .tabla .cant { width:62px }
+  .tabla .gana { width:78px }
+  .tabla .pct  { width:56px }
 
   .tabla .fila { gap:7px }
   /* El nombre NO se recorta: es la columna que identifica el renglón. Se le deja el espacio
@@ -239,9 +245,7 @@
      nombre también son <div>, las reglas le pegaban al logo. Las columnas salían del ancho de
      su contenido y no se alineaban entre renglones — que es justo lo que una tabla tiene que
      hacer. Costó el 16-ago-2026. */
-  .tabla .fila .col.cant { width:62px }
-  .tabla .fila .col.gana { width:78px }
-  .tabla .fila .col.pct  { width:56px }
+
   /* El valor de HOY es la cifra que se busca: más grande y con el color de la ganancia
      contra lo que costó. La resta con la columna de al lado está a la vista. */
   .tabla .fila .col.fuerte { font-size:14.5px; font-weight:750 }
@@ -1924,7 +1928,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260816-1700';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260817-0748';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2046,6 +2050,35 @@ const dinero = Cartera.dinero;
 const conSigno = n => `${Math.abs(n) < 0.005 ? '' : n > 0 ? '+' : '−'}${dinero(Math.abs(n))}`;
 const pct = n => `${Math.abs(n) < 0.05 ? '' : n > 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}%`;
 const clase = n => n >= 0 ? 'sube' : 'baja';
+
+/*
+ * Por qué columna están ordenadas las posiciones. `null` = como las devuelve el motor, que es
+ * por valor de mayor a menor: lo más grande primero, que es lo que uno quiere ver al abrir.
+ * Se toca el encabezado para cambiarlo, como en la tabla del bróker de Marco.
+ *
+ * Vive aquí y no en el estado guardado a propósito: es cómo estás MIRANDO la lista, no un dato
+ * de la cartera. Que se reinicie al abrir la app es lo correcto.
+ */
+let ordenPos = null;          // { col: 'inst'|'cant'|'gana'|'pct', desc: bool }
+
+const COLUMNAS = {
+  inst: { etiqueta: 'Inst.',    valor: (p) => p.ticker,       texto: true },
+  cant: { etiqueta: 'Cant.',    valor: (p) => p.acciones },
+  gana: { etiqueta: 'Ganancia', valor: (p) => p.ganancia },
+  pct:  { etiqueta: '%',        valor: (p) => p.gananciaPct },
+};
+
+/* Ordena una copia: el arreglo de la foto no se muta, que lo usan la rueda y las cuentas. */
+function ordenar(posiciones) {
+  if (!ordenPos) return posiciones;
+  const c = COLUMNAS[ordenPos.col];
+  if (!c) return posiciones;
+  const signo = ordenPos.desc ? -1 : 1;
+  return posiciones.slice().sort((a, b) => {
+    const x = c.valor(a), y = c.valor(b);
+    return signo * (c.texto ? String(x).localeCompare(String(y)) : x - y);
+  });
+}
 
 /*
  * Cómo se llama lo que se compra. Una acción de Apple es una acción; un pedazo de Bitcoin no
@@ -2293,13 +2326,18 @@ function pintarCartera(main, dia, r) {
         columnas. Sin cantidad, porque con tres cifras por renglón el peso se lo llevaba el
         número que menos dice.
       -->
-      <div class="titulo">Lo que tienes</div>
+      <div class="titulo">Mis posiciones</div>
       <div class="lista tabla">
+        <!-- Se toca el encabezado para ordenar. La flecha dice por cuál y en qué sentido. -->
         <div class="encabezado">
-          <span class="hueco">Inst.</span>
-          <span>Cant.</span><span>Ganancia</span><span>%</span>
+          ${Object.entries(COLUMNAS).map(([clave, c]) => {
+            const puesta = ordenPos && ordenPos.col === clave;
+            return `<button class="orden ${clave === 'inst' ? 'hueco' : clave}${
+              puesta ? ' puesta' : ''}" data-orden="${clave}">${c.etiqueta}${
+              puesta ? (ordenPos.desc ? ' ▾' : ' ▴') : ''}</button>`;
+          }).join('')}
         </div>
-        ${foto.posiciones.map(p => `
+        ${ordenar(foto.posiciones).map(p => `
         <button class="fila" data-ficha="${p.ticker}">
           ${circulo(p.ticker, p.nombre)}
           <div class="quien">
@@ -3107,7 +3145,7 @@ document.addEventListener('click', (ev) => {
                               '[data-vender],[data-cerrar],[data-atajo],[data-hacer],' +
                               '[data-nombre],[data-vista],[data-tema],[data-borrar],' +
                               '[data-copia],[data-importar],[data-recado],[data-nocerrar],' +
-                              '[data-salir],[data-irvisor]');
+                              '[data-salir],[data-irvisor],[data-orden]');
   if (!t) return;
 
   /*
@@ -3181,6 +3219,15 @@ document.addEventListener('click', (ev) => {
   /* Cambiar de pantalla cierra cualquier hoja abierta. En el teléfono la capa oscura tapa
      la barra de pestañas y no se puede llegar aquí, pero tratándose de borrar la partida no
      me apoyo en eso: si por lo que sea se cuela, la hoja no debe quedar flotando. */
+  if (t.dataset.orden) {
+    // Mismo encabezado dos veces: se invierte. Otro: empieza por lo más alto, que es lo que
+    // uno busca al ordenar por dinero. El nombre arranca de la A, que es lo natural ahí.
+    const col = t.dataset.orden;
+    if (ordenPos && ordenPos.col === col) ordenPos = { col, desc: !ordenPos.desc };
+    else ordenPos = { col, desc: col !== 'inst' };
+    pintar();
+    return;
+  }
   if (t.dataset.ir)      { vista = t.dataset.ir; fichaAbierta = null; hoja = null; }
   if (t.dataset.ficha)   { fichaAbierta = t.dataset.ficha; }
   if (t.dataset.volver)  { fichaAbierta = null; }
