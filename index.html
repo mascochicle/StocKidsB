@@ -1928,7 +1928,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260817-0750';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260817-1235';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -3346,24 +3346,18 @@ window.listo = true;         // para las pruebas automáticas
 </script>
 
 <script>
-/* El service worker la vuelve instalable y la deja abrir sin internet.
+/* El service worker la vuelve instalable, la deja abrir sin internet y —desde el
+   17-ago-2026— la hace abrir RÁPIDO: sirve lo guardado y refresca por detrás.
    `updateViaCache:'none'` obliga a revalidar sw.js: si no, GitHub Pages lo deja cacheado
-   10 minutos y la versión nueva tarda en llegar. Se busca actualización al abrir y cada vez
-   que vuelve a la app; cuando el service worker nuevo toma el control, se recarga UNA vez.
-   Lo de recargar importa aquí más que en MasMoney: el mundo avanza con el reloj, así que
-   volver a la app siempre tiene que traer la foto de hoy. */
+   10 minutos y la versión nueva no llegaría nunca. Se busca actualización al abrir y al
+   volver a la app; lo que se encuentre entra en la siguiente apertura.
+   El mundo no necesita recargas para avanzar: se deriva del reloj en cada latido. */
 if ('serviceWorker' in navigator) {
-  var _recargando = false;
-  navigator.serviceWorker.addEventListener('controllerchange', function () {
-    if (_recargando) return;
-    /* ⚠️ Nunca recargar con el selector de archivos abierto. Abrirlo manda la app a segundo
-       plano; al volver se busca actualización, y si hay una esperando esto recargaba la
-       página encima del usuario — perdiendo el archivo que estaba escogiendo y pareciendo
-       que la app se trabó. Marco lo cachó el 16-ago-2026. */
-    if (window.escogiendoArchivo) return;
-    _recargando = true;
-    location.reload();
-  });
+  /* ⚠️ NO se recarga sola al llegar una versión nueva. Con "primero lo guardado", la página
+     ya se está viendo cuando el service worker nuevo toma el control: recargar en ese momento
+     es tirarle al usuario lo que estaba haciendo, y con quince publicaciones en un día es
+     recargar todo el tiempo. La versión nueva entra en la SIGUIENTE apertura, y quien tenga
+     prisa tiene "Buscar actualización" en Ajustes, que sí recarga a propósito. */
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
       reg.update();
