@@ -1,4 +1,4 @@
-const V = 'stockidsb-20260817-0748';
+const V = 'stockidsb-20260817-0750';
 const ARCHIVOS = ['./', './index.html', './manifest.webmanifest',
                   './icon-192.png', './icon-512.png'];
 
