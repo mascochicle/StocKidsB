@@ -196,6 +196,27 @@
   .fila .cuanto b { display:block; font-weight:650; font-size:15px }
   .fila .cuanto i { font-style:normal; font-size:12.5px; font-weight:600 }
 
+  /* --- la tarjeta que se pica y su hoja de dividendos (18-ago-2026) --- */
+  /* Una tarjeta que se puede picar tiene que DECIRLO. Sin la flechita se ve igual que la de
+     al lado, que no hace nada, y nadie descubre que hay algo debajo. */
+  .tarjeta.picable { text-align:left; cursor:pointer; font:inherit; color:inherit;
+                     display:block }
+  .tarjeta.picable:active { background:var(--panel2) }
+  .tarjeta .lupa { display:block; margin-top:3px; font-size:11px; font-weight:650;
+                   color:var(--verde) }
+  .pagos { display:flex; flex-direction:column; gap:8px; max-height:46vh; overflow:auto }
+  .pago { display:flex; align-items:center; gap:11px; background:var(--panel2);
+          border-radius:12px; padding:9px 11px }
+  .pago .quien { flex:1; min-width:0 }
+  .pago .tick { font-weight:750; font-size:15px; display:flex; align-items:center; gap:6px }
+  .pago .nombre_chico { color:var(--suave); font-size:12.5px; white-space:nowrap;
+                        overflow:hidden; text-overflow:ellipsis }
+  .pago .cuanto { text-align:right; flex:none; font-variant-numeric:tabular-nums }
+  .pago .cuanto b { display:block; font-weight:700; font-size:15px }
+  .pago .cuanto small { color:var(--suave); font-size:11.5px }
+  /* Gris y no ámbar: "VENDIDA" no es un logro ni una alarma, es un dato. */
+  .sello.ida { background:rgba(124,142,163,.18); color:var(--gris) }
+
   .sello { font-size:10px; font-weight:700; letter-spacing:.3px; padding:1px 6px;
            border-radius:5px; background:rgba(240,180,41,.16); color:var(--ambar); flex:none }
   .sello.canasta { background:rgba(124,142,163,.18); color:var(--gris) }
@@ -535,7 +556,7 @@ const HORNEADO_PRECIOS_1980 = {"generado":"2026-08-18","fuente":"Yahoo Finance �
  * el extractor los guarda como DIFERENCIAS en centavos, escritas en base 36 y separadas por
  * punto. Baja a 241 KB y reconstruye idéntico, centavo por centavo.
  *
- * Descomprimir las 17 series toma unos milisegundos y se hace una sola vez al arrancar.
+ * Descomprimir las series toma unos milisegundos y se hace una sola vez al arrancar.
  * De aquí en adelante todo el resto de la app trabaja con números normales.
  */
 
@@ -1011,6 +1032,31 @@ const Cartera = (() => {
     }
     posiciones.sort((a, b) => b.valor - a.valor);
 
+    /*
+     * QUIÉN LE HA PAGADO, incluidas las que YA VENDIÓ.
+     *
+     * Sale del MISMO `porTicker` que la cifra total, no de un recorrido aparte: si se
+     * calculara por separado, el día que alguien cambie la regla del dividendo las dos
+     * cuentas se irían separando y el detalle dejaría de sumar lo que dice la tarjeta.
+     * Hay prueba de que suman igual, con una empresa vendida de por medio.
+     *
+     * `posiciones` no sirve para esto porque se salta las cerradas — y una empresa que le
+     * pagó y luego vendió SÍ le pagó. Esconderla sería cuadrar la pantalla mintiendo.
+     */
+    const pagos = [];
+    for (const [ticker, p] of porTicker) {
+      if (p.dividendos <= CENTAVO / 100) continue;
+      const e = buscar(datos, ticker);
+      pagos.push({
+        ticker,
+        nombre: e ? e.nombre : ticker,
+        dividendos: p.dividendos,
+        // Para poder decir "y ya no la tienes" sin que el niño tenga que adivinar.
+        laTiene: p.acciones > CENTAVO / 1000,
+      });
+    }
+    pagos.sort((a, b) => b.dividendos - a.dividendos);
+
     const aportado = CAPITAL_INICIAL + aportaciones * APORTACION;
     const total = efectivo + enEmpresas;
 
@@ -1029,6 +1075,7 @@ const Cartera = (() => {
     return {
       dia, efectivo, enEmpresas, posiciones, aportaciones, aportado,
       dividendos,          // lo que le pagaron por tener, en total
+      pagos,               // desglosado por empresa, incluidas las que ya vendió
       realizado,           // ganancia o pérdida ya cobrada al vender
       enPapel,             // lo que subió o bajó y todavía no vende
       total,
@@ -1725,8 +1772,31 @@ const Rueda = (() => {
     efectivo:        { nombre: 'Sin invertir',   color: '#4a5766' },
   };
 
-  const nombreDe = (clave) => (SECTORES[clave] || {}).nombre || clave;
-  const colorDe = (clave) => (SECTORES[clave] || {}).color || '#7c8ea3';
+  /*
+   * ⚠️ QUÉ PASA CON UN SECTOR QUE NO ESTÁ EN LA TABLA.
+   *
+   * Marco va a ir metiendo instrumentos poco a poco (lo pidió su hijo el 18-ago-2026), y
+   * tarde o temprano uno va a traer un sector nuevo. Antes eso caía en el gris de `canasta`
+   * y en el nombre tal cual venía, en minúscula: dos sectores distintos se veían IGUAL en la
+   * rueda y nadie se enteraba, porque la gráfica seguía sumando 100%.
+   *
+   * Ahora el color se saca de la propia clave, así que es estable entre repintados y dos
+   * sectores nuevos distintos no se confunden. Sigue siendo mejor darle su entrada en
+   * SECTORES —el color escogido a mano siempre va a leerse mejor— pero olvidarlo ya no
+   * rompe nada en silencio.
+   */
+  const RESERVA = ['#4fc3a1', '#e5687a', '#8d9f3f', '#6f7ee8', '#d97757', '#57a8d9'];
+
+  const nombreDe = (clave) => (SECTORES[clave] || {}).nombre
+    || (clave ? clave.charAt(0).toUpperCase() + clave.slice(1) : 'Otros');
+
+  const colorDe = (clave) => {
+    const conocido = (SECTORES[clave] || {}).color;
+    if (conocido) return conocido;
+    let h = 0;
+    for (let i = 0; i < (clave || '').length; i++) h = (h * 31 + clave.charCodeAt(i)) >>> 0;
+    return RESERVA[h % RESERVA.length];
+  };
 
   /*
    * Reparte la cartera por sector. Devuelve las rebanadas ordenadas de mayor a menor, con el
@@ -1936,7 +2006,7 @@ if (window.matchMedia) {
     revisarTemaDelSistema);
 }
 aplicarTema();
-const SK_VER = '20260818-0750';    // sello para saber si ya llegó la versión nueva
+const SK_VER = '20260819-1919';    // sello para saber si ya llegó la versión nueva
 
 /* A dónde va la pestaña "Visor" — el dinero de VERDAD, que es otra página.
    ⚠️ En desarrollo los archivos están en carpetas distintas y publicados quedan lado a lado,
@@ -2349,7 +2419,15 @@ function pintarCartera(main, dia, r) {
     <div class="leido" id="leido"></div>
     <div class="tarjetas">
       <div class="tarjeta"><i>Sin invertir</i><b>${dinero(foto.efectivo)}<em class="moneda">${MONEDA}</em></b></div>
-      <div class="tarjeta"><i>Te han pagado por tener</i><b>${dinero(foto.dividendos)}<em class="moneda">${MONEDA}</em></b></div>
+      ${foto.pagos.length
+        // Solo se puede picar si HAY de dónde: una hoja vacía se siente como que falla.
+        ? `<button class="tarjeta picable" data-pagos="1">
+             <i>Te han pagado por tener</i>
+             <b>${dinero(foto.dividendos)}<em class="moneda">${MONEDA}</em></b>
+             <span class="lupa">ver de cuáles ›</span>
+           </button>`
+        : `<div class="tarjeta"><i>Te han pagado por tener</i>
+             <b>${dinero(foto.dividendos)}<em class="moneda">${MONEDA}</em></b></div>`}
     </div>
     ${foto.posiciones.length ? `
       <div class="titulo">En qué está tu dinero</div>
@@ -3009,6 +3087,7 @@ function pintarHoja(dia) {
   if (hoja.tipo === 'nombre') { pintarHojaNombre(); return; }
   if (hoja.tipo === 'borrar') { pintarHojaBorrar(dia); return; }
   if (hoja.tipo === 'visor') { pintarHojaVisor(); return; }
+  if (hoja.tipo === 'pagos') { pintarHojaPagos(dia); return; }
 
   const e = DATOS.empresas.find(x => x.ticker === hoja.ticker);
   const foto = Cartera.calcular(estado, DATOS, dia);
@@ -3089,6 +3168,60 @@ function pintarHojaVisor() {
         <div class="acciones apiladas">
           <button class="boton comprar" data-irvisor="1">Sí, ir al Visor</button>
           <button class="boton vender" data-cerrar="1">Quedarme aquí</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+/*
+ * DE CUÁLES EMPRESAS SALIÓ EL DIVIDENDO. La pidió Marco el 18-ago-2026.
+ *
+ * Vale la pantalla aparte porque es donde el dinero por esperar deja de ser una cifra suelta
+ * y se vuelve nombres: Coca-Cola te pagó tanto, Disney nada. Eso es exactamente la lección
+ * que el número solo no alcanza a dar.
+ *
+ * ⚠️ Sale de `foto.pagos`, que viene del MISMO recorrido que la cifra de la tarjeta e incluye
+ * las que ya vendió. Armarlo desde `posiciones` escondería a una que le pagó y luego soltó, y
+ * el desglose no sumaría lo que dice arriba. Hay prueba.
+ */
+function pintarHojaPagos(dia) {
+  const foto = Cartera.calcular(estado, DATOS, dia);
+  const total = foto.dividendos;
+  // Las que tiene y NO le han pagado nada: es la otra mitad de la lección.
+  const mudas = foto.posiciones.filter(p => !foto.pagos.some(q => q.ticker === p.ticker));
+
+  document.getElementById('app').insertAdjacentHTML('beforeend', `
+    <div class="fondoNegro" data-cerrar="1">
+      <div class="hoja" data-nocerrar="1">
+        <h3>Te han pagado ${dinero(total)}</h3>
+        <p class="pie">Sin vender nada. Solo por tenerlas.</p>
+        <div class="pagos">
+          ${foto.pagos.map(p => `
+            <div class="pago">
+              ${circulo(p.ticker, p.nombre)}
+              <div class="quien">
+                <div class="tick">${p.ticker}${p.laTiene ? ''
+                  : '<span class="sello ida">VENDIDA</span>'}</div>
+                <div class="nombre_chico">${escapar(p.nombre)}</div>
+              </div>
+              <div class="cuanto">
+                <b class="sube">${centavitos(p.dividendos)}</b>
+                <small>${(() => {
+                  // "0%" junto a $0.84 se lee como error. Abajo de medio punto se dice
+                  // "<1%", que es la verdad y además no miente por redondeo.
+                  const x = total > 0 ? 100 * p.dividendos / total : 0;
+                  return x < 0.5 ? '&lt;1%' : x.toFixed(0) + '%';
+                })()}</small>
+              </div>
+            </div>`).join('')}
+        </div>
+        ${mudas.length ? `<div class="reparto no" style="margin-top:12px">
+          ${mudas.length === 1
+            ? `<b>${escapar(mudas[0].nombre)}</b> no te ha pagado nada`
+            : `<b>${mudas.length}</b> de las tuyas no te han pagado nada`}:
+          se quedan todo lo que ganan para crecer. Solo ganas si sube el precio.</div>` : ''}
+        <div class="acciones apiladas" style="margin-top:14px">
+          <button class="boton vender" data-cerrar="1">Cerrar</button>
         </div>
       </div>
     </div>`);
@@ -3192,7 +3325,7 @@ document.addEventListener('click', (ev) => {
                               '[data-vender],[data-cerrar],[data-atajo],[data-hacer],' +
                               '[data-nombre],[data-vista],[data-tema],[data-borrar],' +
                               '[data-copia],[data-importar],[data-recado],[data-nocerrar],' +
-                              '[data-salir],[data-irvisor],[data-orden]');
+                              '[data-salir],[data-irvisor],[data-orden],[data-pagos]');
   if (!t) return;
 
   /*
@@ -3205,6 +3338,7 @@ document.addEventListener('click', (ev) => {
   if (t.dataset.irvisor) { location.href = A_VISOR; return; }
 
   if (t.dataset.nocerrar) return;
+  if (t.dataset.pagos) { hoja = { tipo: 'pagos' }; pintar(); return; }
   if (t.dataset.nombre)  { hoja = { tipo: 'nombre' }; }
   if (t.dataset.recado) { recado = null; pintar(); return; }
   if (t.dataset.copia) {
